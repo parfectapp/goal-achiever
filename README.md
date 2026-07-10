@@ -1,10 +1,19 @@
 # GOAL ACHIEVER — Tu día en orden
 
 Asistente personal de metas tipo JARVIS: convierte metas grandes (triatlón en 6 meses,
-$1M en 10 años) en el plan exacto de hoy. Vanilla HTML/CSS/JS, sin dependencias,
-datos en localStorage.
+$1M en 10 años) en el plan exacto de hoy. Multi-usuario (familia), carreras sociales
+por círculos, y nube familiar para sincronizar entre dispositivos.
 
-**Correr:** `python3 -m http.server 4276 --directory ~/claude/goal-achiever` → http://localhost:4276
+**EN VIVO:** https://parfectapp.github.io/goal-achiever/
+**Local:** `python3 -m http.server 4276 --directory ~/claude/goal-achiever` → http://localhost:4276
+
+## Backend (nube familiar)
+
+Supabase (proyecto compartido con ABONO). Activación única: pegar `supabase-schema.sql`
+en supabase.com → SQL Editor → Run. Luego, en la app: Perfil → Nube familiar → "Crear mi casa"
+→ compartir el código CASA-XXXXXX con la familia → cada quien "Unirme" en su dispositivo.
+Sincroniza: perfiles, checks, metas, círculos/carreras y empujones. La API key de Claude
+y el chat NUNCA suben a la nube (viven solo en cada dispositivo).
 
 ## Features y de dónde se copiaron (investigación jul 2026)
 

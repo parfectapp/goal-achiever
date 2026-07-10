@@ -279,7 +279,12 @@ function planDia(enc, dow) {
 const ROOT_KEY = "ga_root";
 let root = loadRoot();
 root.circulos = root.circulos || [];
-Object.values(root.users || {}).forEach((u) => { u.nudges = u.nudges || []; });
+root.nudges = root.nudges || [];   // empujones a nivel casa (sincronizan entre dispositivos)
+root.tumbas = root.tumbas || [];   // ids borrados (círculos/usuarios) para que no resuciten al sincronizar
+Object.values(root.users || {}).forEach((u) => {
+  (u.nudges || []).forEach((n) => root.nudges.push({ id: uid(), para: u._id, de: n.de, texto: n.texto, fecha: n.fecha, visto: !!n.visto }));
+  delete u.nudges;
+});
 let S = null;   // estado del usuario activo
 
 function loadRoot() {
@@ -291,8 +296,11 @@ function loadRoot() {
   const legacy = migrarLegacy();
   return legacy || { activeId: null, users: {} };
 }
-function saveRoot() { localStorage.setItem(ROOT_KEY, JSON.stringify(root)); }
-function save() { if (S && S._id) { root.users[S._id] = S; saveRoot(); } }
+function saveRoot() {
+  localStorage.setItem(ROOT_KEY, JSON.stringify(root));
+  if (typeof Sync !== "undefined") Sync.pushSoon();
+}
+function save() { if (S && S._id) { S._rev = Date.now(); root.users[S._id] = S; saveRoot(); } }
 
 function migrarLegacy() {
   try {
@@ -722,13 +730,13 @@ function bloqueActualYSiguiente() {
   return { actual, siguiente, bloques };
 }
 function renderNudges() {
-  const sinVer = (S.nudges || []).filter((n) => !n.visto);
+  const sinVer = root.nudges.filter((n) => n.para === S._id && !n.visto);
   $("#nudges").innerHTML = sinVer.map((n, i) => `<div class="nudge">
     <span><span class="de">${n.de} te empujó:</span> <span class="txt">"${n.texto}"</span></span>
     <button data-n="${i}">OK</button>
   </div>`).join("");
   $$("#nudges .nudge button").forEach((b) => b.addEventListener("click", () => {
-    sinVer[b.dataset.n].visto = true; save(); renderNudges();
+    sinVer[b.dataset.n].visto = true; saveRoot(); renderNudges();
   }));
 }
 
@@ -926,10 +934,9 @@ function circProgress(c) {
 }
 
 function empujar(destId, btn) {
-  const dest = root.users[destId]; if (!dest) return;
+  if (!root.users[destId]) return;
   const texto = FRASES_PUSH[Math.floor(Math.random() * FRASES_PUSH.length)];
-  dest.nudges = dest.nudges || [];
-  dest.nudges.push({ de: S.nombre, texto, fecha: hoyISO(), visto: false });
+  root.nudges.push({ id: uid(), para: destId, de: S.nombre, texto, fecha: hoyISO(), visto: false });
   saveRoot();
   if (btn) { btn.textContent = "Enviado"; btn.classList.add("sent"); btn.disabled = true; }
 }
@@ -983,7 +990,7 @@ function renderSocial() {
     }));
     $("#cf-crear").addEventListener("click", () => {
       if (!draftCirc.nombre.trim()) { alert("Ponle nombre al círculo."); return; }
-      const c = { id: uid(), nombre: draftCirc.nombre.trim(), tipo: draftCirc.tipo, metrica: draftCirc.metrica, miembros: draftCirc.miembros, creado: hoyISO() };
+      const c = { id: uid(), nombre: draftCirc.nombre.trim(), tipo: draftCirc.tipo, metrica: draftCirc.metrica, miembros: draftCirc.miembros, creado: hoyISO(), _rev: Date.now() };
       root.circulos.push(c); saveRoot();
       circSel = c.id; circFormOpen = false; renderSocial();
     });
@@ -1037,6 +1044,7 @@ function renderSocial() {
   $("#circ-del").addEventListener("click", () => {
     if (!confirm(`¿Eliminar el círculo "${c.nombre}"?`)) return;
     root.circulos = root.circulos.filter((x) => x.id !== c.id);
+    root.tumbas.push(c.id);
     saveRoot(); circSel = null; renderSocial();
   });
 }
@@ -1069,7 +1077,7 @@ function brainBriefing() {
   if (prox) l.push(`Hito más próximo: "${prox.p.proximo.t}" (${prox.m.nombre}) para el ${prox.p.proximo.f}.`);
   const atras = S.metas.map((m) => ({ m, p: paceMeta(m) })).filter((x) => x.p.atrasado);
   if (atras.length) l.push(`Atención: ${atras.map((x) => x.m.nombre).join(", ")} con hito vencido.`);
-  const sinVer = (S.nudges || []).filter((n) => !n.visto);
+  const sinVer = root.nudges.filter((n) => n.para === S._id && !n.visto);
   sinVer.forEach((n) => l.push(`${n.de} te empujó: "${n.texto}"`));
   misCirculos().forEach((c) => {
     const filas = circProgress(c);
@@ -1163,6 +1171,7 @@ function renderPerfil() {
   $("#p-nombre").value = S.perfil.nombre; $("#p-ciudad").value = S.perfil.ciudad;
   $("#p-despertar").value = S.perfil.despertar; $("#p-dormir").value = S.perfil.dormir;
   $("#p-carta").value = S.perfil.carta; $("#p-apikey").value = S.perfil.apiKey;
+  renderNube();
 }
 $("#btn-save").addEventListener("click", () => {
   const prevWake = S.perfil.despertar, prevSleep = S.perfil.dormir;
@@ -1186,8 +1195,11 @@ $("#btn-export").addEventListener("click", () => {
 $("#btn-del-user").addEventListener("click", () => {
   if (!confirm(`¿Eliminar el perfil de ${S.nombre} y todos sus datos? No se puede deshacer.`)) return;
   const delId = S._id;
-  root.circulos.forEach((c) => { c.miembros = c.miembros.filter((id) => id !== delId); });
-  root.circulos = root.circulos.filter((c) => c.miembros.length > 0);
+  root.circulos.forEach((c) => {
+    if (c.miembros.includes(delId)) { c.miembros = c.miembros.filter((id) => id !== delId); c._rev = Date.now(); }
+  });
+  root.circulos = root.circulos.filter((c) => { if (!c.miembros.length) { root.tumbas.push(c.id); return false; } return true; });
+  root.tumbas.push(delId);
   delete root.users[delId]; root.activeId = null; saveRoot(); S = null;
   Object.keys(root.users).length ? openLogin() : showGateScreen("gate-landing");
 });
@@ -1204,6 +1216,65 @@ function render() {
   if (vista === "social") renderSocial();
   if (vista === "asistente") renderChat();
   if (vista === "perfil") renderPerfil();
+}
+
+/* ---------- puente con la nube (sync.js) ---------- */
+window.__gaRoot = () => root;
+window.__gaAplicar = (nuevo) => {
+  root = nuevo;
+  localStorage.setItem(ROOT_KEY, JSON.stringify(root)); // directo, sin re-disparar push
+  if (S) {
+    if (root.users[S._id]) { S = root.users[S._id]; renderUserChip(); render(); }
+    else { S = null; root.activeId = null; showGateScreen("gate-landing"); }
+  }
+};
+window.__syncUI = () => { if (S && vista === "perfil") renderNube(); };
+
+function renderNube() {
+  const card = $("#nube-card"); if (!card) return;
+  const st = typeof Sync !== "undefined" ? Sync.estado : "off";
+  const casa = typeof Sync !== "undefined" ? Sync.casa : "";
+  if (!casa) {
+    card.innerHTML = `
+      <p class="why" style="margin-bottom:14px;">Sin conectar. Crea una casa y comparte el código con tu familia:
+      cada quien abre la app en su dispositivo, se une con el código, y los perfiles, carreras y empujones se sincronizan.</p>
+      <div class="btn-row" style="margin-top:0;">
+        <button class="btn primary" id="nube-crear">Crear mi casa</button>
+        <input id="nube-cod" type="text" placeholder="CASA-XXXXXX" style="max-width:180px; text-transform:uppercase;">
+        <button class="btn" id="nube-unir">Unirme</button>
+      </div>
+      <div class="hint" id="nube-msg"></div>`;
+    $("#nube-crear").addEventListener("click", async () => {
+      $("#nube-msg").textContent = "Creando casa…";
+      const cod = await Sync.crearCasa(); renderNube();
+    });
+    $("#nube-unir").addEventListener("click", async () => {
+      const cod = $("#nube-cod").value.trim();
+      if (!/^CASA-[A-Z0-9]{6}$/i.test(cod)) { $("#nube-msg").textContent = "El código se ve como CASA-XXXXXX."; return; }
+      $("#nube-msg").textContent = "Conectando…";
+      await Sync.unirse(cod); renderNube();
+    });
+  } else {
+    const labels = {
+      activa: "Sincronización activa", conectando: "Conectando…",
+      "sin-tabla": "Falta activar el backend (1 paso)", error: "Sin conexión — reintentando",
+    };
+    card.innerHTML = `
+      <div style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;">
+        <span class="mono" style="font-size:22px; letter-spacing:0.08em;">${casa}</span>
+        <span class="k" style="color:${st === "activa" ? "var(--text)" : st === "sin-tabla" ? "var(--danger)" : "var(--dim)"}">${labels[st] || st}</span>
+      </div>
+      <p class="why" style="margin-top:10px;">Comparte este código con tu familia. En su dispositivo: Perfil → Nube familiar → Unirme.</p>
+      ${st === "sin-tabla" ? `<p class="why" style="color:var(--danger); margin-top:8px;">Para activar el backend: abre tu proyecto en supabase.com → SQL Editor → pega el contenido de <b>supabase-schema.sql</b> (está en el repo) → Run. Es una sola vez.</p>` : ""}
+      <div class="btn-row">
+        <button class="btn" id="nube-sync">Sincronizar ahora</button>
+        <button class="btn danger" id="nube-salir">Salir de la casa</button>
+      </div>`;
+    $("#nube-sync").addEventListener("click", async () => { await Sync.ciclo(); renderNube(); });
+    $("#nube-salir").addEventListener("click", () => {
+      if (confirm("¿Desconectar este dispositivo de la casa? (los datos locales se quedan)")) { Sync.salir(); renderNube(); }
+    });
+  }
 }
 
 function boot() {
