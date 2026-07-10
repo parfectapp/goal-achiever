@@ -2,12 +2,28 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Goal Achiever — Tu día en orden</title>
+<meta name="description" content="Convierte tus metas grandes en el plan exacto de hoy. Rutinas, retos en familia y un asistente que te empuja a tu mejor versión.">
+<meta name="theme-color" content="#0A0A0B">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Goal Achiever">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Goal Achiever — Tu día en orden">
+<meta property="og:description" content="Convierte tus metas grandes en el plan exacto de hoy. Rutinas, retos en familia y un asistente que te empuja.">
+<meta property="og:url" content="https://parfectapp.github.io/goal-achiever/">
+<meta property="og:image" content="https://parfectapp.github.io/goal-achiever/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="styles.css">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%23111111'/><circle cx='50' cy='50' r='26' fill='none' stroke='white' stroke-width='9'/><circle cx='50' cy='50' r='7' fill='white'/></svg>">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 </head>
-<body>
+<body class="no-fx">
 
 <!-- ============================================================
      GATE — landing / login / crear / encuesta
@@ -16,7 +32,10 @@
 
   <div class="gate-top">
     <div class="brand"><span class="dot"></span> Goal Achiever</div>
-    <button class="btn ghost" id="top-login">Entrar</button>
+    <div style="display:flex; gap:8px;">
+      <button class="btn ghost btn-install" style="display:none;">Instalar app</button>
+      <button class="btn ghost" id="top-login">Entrar</button>
+    </div>
   </div>
 
   <!-- LANDING -->
@@ -239,8 +258,12 @@
 
       <div class="section-line">
         <span class="k">Tu día en orden</span>
-        <button class="btn" id="btn-replan" title="Recorre los bloques pendientes para empezar ahora">Replanear resto</button>
+        <div style="display:flex; gap:8px;">
+          <button class="btn" id="btn-add-block">+ Bloque</button>
+          <button class="btn" id="btn-replan" title="Recorre los bloques pendientes para empezar ahora">Replanear resto</button>
+        </div>
       </div>
+      <div id="add-block-form"></div>
       <div id="timeline"></div>
 
       <div class="section-line" style="margin-top:26px; border-top:1px solid var(--line); padding-top:16px;">
@@ -326,6 +349,17 @@
       <div id="perfil-saved">Guardado ✓</div>
 
       <div style="margin-top:38px; border-top:1px solid var(--line); padding-top:26px;">
+        <span class="k">Instalar en tu teléfono</span>
+        <div class="meta-card" style="margin-top:14px;">
+          <p class="why" style="margin:0;">Instálala como app: se abre desde tu pantalla de inicio, en pantalla completa y funciona sin internet.</p>
+          <div class="btn-row" style="margin-top:14px;">
+            <button class="btn primary btn-install" style="display:none;">Instalar app</button>
+            <span class="hint" id="install-hint" style="margin-top:0;">En iPhone: botón Compartir → “Agregar a inicio”. En Android/Chrome aparece el botón aquí.</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:26px; border-top:1px solid var(--line); padding-top:26px;">
         <span class="k">Nube familiar · sincroniza entre dispositivos</span>
         <div class="meta-card" id="nube-card" style="margin-top:14px;"></div>
       </div>
@@ -352,12 +386,7 @@
   </div>
 </div>
 
-<script src="https://unpkg.com/three@0.140.0/build/three.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
-<script src="https://unpkg.com/@studio-freight/lenis@1.0.42/dist/lenis.min.js"></script>
 <script src="sync.js"></script>
 <script src="app.js"></script>
-<script src="landing.js"></script>
 </body>
 </html>

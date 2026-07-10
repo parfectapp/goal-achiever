@@ -463,11 +463,31 @@ function paceMeta(m) {
 /* ============================================================
    GATE — landing / login / crear / encuesta
    ============================================================ */
+/* carga diferida de la landing 3D: solo si el usuario ve la portada
+   (un usuario ya registrado entra directo a la app sin bajar ~600 KB de libs) */
+let __landingLoaded = false;
+function ensureLanding() {
+  if (__landingLoaded) return;
+  __landingLoaded = true;
+  const load = (src) => new Promise((res) => {
+    const s = document.createElement("script");
+    s.async = true; s.onload = res; s.onerror = res; s.src = src;
+    document.head.appendChild(s);
+  });
+  Promise.all([
+    load("https://unpkg.com/three@0.140.0/build/three.min.js"),
+    load("https://unpkg.com/@studio-freight/lenis@1.0.42/dist/lenis.min.js"),
+    load("https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"),
+  ]).then(() => load("https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"))
+    .then(() => load("landing.js"));
+}
+
 function showGateScreen(id) {
   $("#gate").classList.add("on");
   $("#app").classList.remove("on");
   $$(".gate-screen").forEach((s) => s.classList.toggle("on", s.id === id));
   $("#top-login").style.display = (id === "gate-landing") ? "" : "none";
+  if (id === "gate-landing") ensureLanding();
   window.scrollTo(0, 0);
 }
 function enterApp() {
@@ -840,14 +860,16 @@ function renderHoy() {
     const cls = ["tl-block", done ? "done" : "", esActual ? "now" : "", past ? "past" : ""].join(" ");
     return `<div class="${cls}"><div class="hrs">${b.ini} – ${b.fin}</div>
       <div><div class="tt">${b.titulo}</div>${meta ? `<div class="meta-tag">→ ${meta.nombre}</div>` : ""}</div>
+      <button class="tl-del" data-del="${b.slug}" aria-label="Quitar bloque" title="Quitar de hoy">×</button>
       <button class="chk ${done ? "done" : ""}" data-slug="${b.slug}" aria-label="marcar">${done ? "✓" : ""}</button></div>`;
-  }).join("") || `<div style="color:var(--faint);font-size:14px;padding:16px 0;">No hay bloques para hoy. Ve a Perfil → Rehacer encuesta.</div>`;
+  }).join("") || `<div style="color:var(--faint);font-size:14px;padding:16px 0;">No hay bloques para hoy. Agrega uno con “+ Bloque” o rehaz tu encuesta en Perfil.</div>`;
   $$("#timeline .chk").forEach((c) => c.addEventListener("click", () => {
     const slug = c.dataset.slug;
     toggleCheck(hoy, slug);
     if (slug.startsWith("circ_")) manejarCheckCirculo(slug.slice(5), isChecked(hoy, slug));
     renderHoy();
   }));
+  $$("#timeline .tl-del").forEach((c) => c.addEventListener("click", () => quitarBloque(c.dataset.del)));
 
   const ws = weekScore();
   $("#week-score").textContent = `${ws}% ejecutado`;
@@ -868,6 +890,45 @@ function replanearHoy() {
   S.overrides[hoy] = nuevos; save(); renderHoy(); return nuevos;
 }
 $("#btn-replan").addEventListener("click", replanearHoy);
+
+/* editor del día: agregar / quitar bloques (materializa el día en overrides) */
+function materializarHoy() {
+  const hoy = hoyISO();
+  if (!S.overrides[hoy]) S.overrides[hoy] = JSON.parse(JSON.stringify(bloquesDe(hoy)));
+  return S.overrides[hoy];
+}
+function agregarBloque(titulo, ini, dur) {
+  const arr = materializarHoy();
+  arr.push({ ini, fin: toHHMM(toMin(ini) + dur), slug: "x_" + uid(), titulo, meta: null, tipo: "custom" });
+  arr.sort((a, b) => toMin(a.ini) - toMin(b.ini));
+  save(); renderHoy();
+}
+function quitarBloque(slug) {
+  const arr = materializarHoy();
+  const i = arr.findIndex((b) => b.slug === slug);
+  if (i >= 0) arr.splice(i, 1);
+  if (slug.startsWith("circ_")) manejarCheckCirculo(slug.slice(5), false);
+  save(); renderHoy();
+}
+$("#btn-add-block").addEventListener("click", () => {
+  const f = $("#add-block-form");
+  if (f.innerHTML) { f.innerHTML = ""; return; }
+  const sugerida = toHHMM(Math.min(23 * 60, Math.ceil(nowMin() / 30) * 30));
+  f.innerHTML = `<div class="add-block">
+    <input id="ab-tit" type="text" placeholder="¿Qué vas a hacer?">
+    <input id="ab-hora" type="time" value="${sugerida}">
+    <select id="ab-dur"><option value="15">15 min</option><option value="30" selected>30 min</option><option value="45">45 min</option><option value="60">1 h</option><option value="90">1.5 h</option><option value="120">2 h</option></select>
+    <button class="btn primary" id="ab-add">Añadir</button>
+  </div>`;
+  const add = () => {
+    const t = $("#ab-tit").value.trim(); if (!t) { $("#ab-tit").focus(); return; }
+    agregarBloque(t, $("#ab-hora").value || sugerida, +$("#ab-dur").value);
+    f.innerHTML = "";
+  };
+  $("#ab-add").addEventListener("click", add);
+  $("#ab-tit").addEventListener("keydown", (e) => { if (e.key === "Enter") add(); });
+  $("#ab-tit").focus();
+});
 
 /* registrar avance del reto al marcar la actividad del círculo */
 let vmCb = null;
@@ -1491,3 +1552,27 @@ function boot() {
   tick();
 }
 boot();
+
+/* ---------- PWA: instalable + offline ---------- */
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+}
+let __deferredPrompt = null;
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  __deferredPrompt = e;
+  $$(".btn-install").forEach((b) => (b.style.display = ""));
+  const hint = $("#install-hint"); if (hint) hint.style.display = "none";
+});
+window.addEventListener("appinstalled", () => {
+  __deferredPrompt = null;
+  $$(".btn-install").forEach((b) => (b.style.display = "none"));
+});
+async function instalarApp() {
+  if (!__deferredPrompt) return;
+  __deferredPrompt.prompt();
+  try { await __deferredPrompt.userChoice; } catch (e) { /* cancelado */ }
+  __deferredPrompt = null;
+  $$(".btn-install").forEach((b) => (b.style.display = "none"));
+}
+document.addEventListener("click", (e) => { if (e.target.closest(".btn-install")) instalarApp(); });

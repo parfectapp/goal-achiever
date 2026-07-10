@@ -19,7 +19,8 @@
   const hasGSAP = typeof gsap !== "undefined" && typeof ScrollTrigger !== "undefined";
   const hasLenis = typeof Lenis !== "undefined";
 
-  if (!hasGSAP || reduced) document.body.classList.add("no-fx");
+  // el <body> arranca con .no-fx (todo visible). Si podemos animar, lo quitamos.
+  if (hasGSAP && !reduced) document.body.classList.remove("no-fx");
 
   const visible = () => gate.classList.contains("on") && screen.classList.contains("on");
 

@@ -409,6 +409,16 @@ textarea { resize: vertical; }
 .chk { width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid var(--line-2); flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: background .15s, border-color .15s; }
 .chk:hover { border-color: var(--accent); }
 .chk.done { background: var(--accent); border-color: var(--accent); color: var(--bg); font-size: 13px; }
+.tl-del { position: absolute; right: 50px; top: 50%; transform: translateY(-50%); width: 22px; height: 22px; border-radius: 50%; color: var(--faint); font-size: 15px; line-height: 1; opacity: 0; transition: opacity .15s, color .15s; }
+.tl-block:hover .tl-del { opacity: 1; }
+.tl-del:hover { color: var(--danger); }
+@media (hover: none) { .tl-del { opacity: .5; } }
+
+/* editor: agregar bloque */
+#add-block-form:empty { display: none; }
+.add-block { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; border: 1px solid var(--line-2); border-radius: 10px; padding: 12px; margin-bottom: 8px; background: var(--panel); }
+.add-block input[type="text"] { flex: 1; min-width: 160px; }
+.add-block input[type="time"], .add-block select { width: auto; }
 
 .section-line { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .bar { height: 8px; background: var(--line); border-radius: 99px; margin-top: 10px; overflow: hidden; }
