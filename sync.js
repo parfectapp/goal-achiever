@@ -54,10 +54,17 @@ const Sync = (() => {
     });
     out.tumbas.forEach((id) => { delete out.users[id]; });
 
-    // círculos: por id, gana _rev más nuevo; tumbas eliminan
+    // círculos: por id, gana _rev más nuevo; tumbas eliminan;
+    // los registros del reto se UNEN por id (dos personas pueden aportar a la vez)
     const circ = {};
     [...(remoto.circulos || []), ...(local.circulos || [])].forEach((c) => {
-      if (!circ[c.id] || (c._rev || 0) > (circ[c.id]._rev || 0)) circ[c.id] = c;
+      if (!circ[c.id]) { circ[c.id] = JSON.parse(JSON.stringify(c)); return; }
+      const prev = circ[c.id];
+      const gana = (c._rev || 0) > (prev._rev || 0) ? c : prev;
+      const regs = {};
+      [...(prev.registros || []), ...(c.registros || [])].forEach((r) => { regs[r.id] = r; });
+      circ[c.id] = JSON.parse(JSON.stringify(gana));
+      circ[c.id].registros = Object.values(regs);
     });
     out.circulos = Object.values(circ).filter((c) => !out.tumbas.includes(c.id));
 

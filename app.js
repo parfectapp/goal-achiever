@@ -369,7 +369,16 @@ function nuevoUsuario(nombre, pin) {
 function bloquesDeU(u, dateISO) {
   if (u.overrides && u.overrides[dateISO]) return u.overrides[dateISO];
   const dow = parseISO(dateISO).getDay();
-  return (u.plan && u.plan[dow]) || [];
+  let B = (u.plan && u.plan[dow]) || [];
+  // actividades de los círculos del usuario ese día (aparecen en su plan)
+  const extra = (root.circulos || [])
+    .filter((c) => c.miembros.includes(u._id) && c.actividad && c.actividad.dias.includes(dow))
+    .map((c) => ({
+      ini: c.actividad.ini, fin: toHHMM(toMin(c.actividad.ini) + c.actividad.dur),
+      slug: "circ_" + c.id, titulo: c.actividad.titulo + " · " + c.nombre, meta: null, tipo: "circulo",
+    }));
+  if (extra.length) B = [...B, ...extra].sort((a, b) => toMin(a.ini) - toMin(b.ini));
+  return B;
 }
 function isCheckedU(u, dateISO, slug) { return !!(u.checks[dateISO] && u.checks[dateISO][slug]); }
 function dayScoreU(u, dateISO) {
@@ -778,7 +787,12 @@ function renderHoy() {
       <div><div class="tt">${b.titulo}</div>${meta ? `<div class="meta-tag">→ ${meta.nombre}</div>` : ""}</div>
       <button class="chk ${done ? "done" : ""}" data-slug="${b.slug}" aria-label="marcar">${done ? "✓" : ""}</button></div>`;
   }).join("") || `<div style="color:var(--faint);font-size:14px;padding:16px 0;">No hay bloques para hoy. Ve a Perfil → Rehacer encuesta.</div>`;
-  $$("#timeline .chk").forEach((c) => c.addEventListener("click", () => { toggleCheck(hoy, c.dataset.slug); renderHoy(); }));
+  $$("#timeline .chk").forEach((c) => c.addEventListener("click", () => {
+    const slug = c.dataset.slug;
+    toggleCheck(hoy, slug);
+    if (slug.startsWith("circ_")) manejarCheckCirculo(slug.slice(5), isChecked(hoy, slug));
+    renderHoy();
+  }));
 
   const ws = weekScore();
   $("#week-score").textContent = `${ws}% ejecutado`;
@@ -799,6 +813,44 @@ function replanearHoy() {
   S.overrides[hoy] = nuevos; save(); renderHoy(); return nuevos;
 }
 $("#btn-replan").addEventListener("click", replanearHoy);
+
+/* registrar avance del reto al marcar la actividad del círculo */
+let vmCb = null;
+function pedirValor(titulo, cb) {
+  vmCb = cb;
+  $("#vm-titulo").textContent = titulo;
+  $("#vm-input").value = "";
+  $("#valor-modal").classList.add("on");
+  setTimeout(() => $("#vm-input").focus(), 60);
+}
+function cerrarValor(valor) {
+  $("#valor-modal").classList.remove("on");
+  const cb = vmCb; vmCb = null;
+  if (cb) cb(valor);
+}
+$("#vm-ok").addEventListener("click", () => { const v = parseFloat($("#vm-input").value); cerrarValor(isNaN(v) ? null : v); });
+$("#vm-skip").addEventListener("click", () => cerrarValor(null));
+$("#vm-input").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#vm-ok").click(); });
+document.querySelector("#valor-modal .backdrop").addEventListener("click", () => cerrarValor(null));
+
+function manejarCheckCirculo(cId, quedoMarcado) {
+  const c = root.circulos.find((x) => x.id === cId); if (!c) return;
+  const hoy = hoyISO();
+  if (c.metrica !== "reto" || !c.reto) { c._rev = Date.now(); saveRoot(); return; }
+  if (quedoMarcado) {
+    pedirValor(`${c.reto.que} — ¿cuánto sumaste hoy? (${c.reto.unidad})`, (v) => {
+      if (v && v > 0) {
+        c.registros = c.registros || [];
+        c.registros.push({ id: uid(), uid: S._id, fecha: hoy, valor: v });
+        c._rev = Date.now(); saveRoot();
+      }
+      if (vista === "social") renderSocial();
+    });
+  } else {
+    c.registros = (c.registros || []).filter((r) => !(r.uid === S._id && r.fecha === hoy));
+    c._rev = Date.now(); saveRoot();
+  }
+}
 
 /* ============================================================
    RENDER — SEMANA
@@ -908,6 +960,22 @@ function bindCalc() {
    SOCIAL — círculos y carrera
    ============================================================ */
 const CIRC_TIPOS = ["Gym", "Familia", "Ahorro", "Estudio", "Trading", "Otro"];
+const UNIDADES = ["$", "kg", "km", "hrs", "veces"];
+/* cada tipo trae una actividad para el plan diario y un reto sugerido */
+const CIRC_DEFAULTS = {
+  Gym:     { act: { titulo: "Entreno", dias: [1, 2, 3, 4, 5], ini: "18:30", dur: 60 }, reto: { que: "Bajar de peso", meta: 5, unidad: "kg" } },
+  Familia: { act: { titulo: "Tiempo de calidad", dias: [0, 6], ini: "17:00", dur: 60 }, reto: { que: "Salidas juntos", meta: 12, unidad: "veces" } },
+  Ahorro:  { act: { titulo: "Aporte al fondo", dias: [6], ini: "12:00", dur: 15 }, reto: { que: "Ahorrar para vacaciones", meta: 2000, unidad: "$" } },
+  Estudio: { act: { titulo: "Sesión de estudio", dias: [1, 2, 3, 4, 5], ini: "19:00", dur: 45 }, reto: { que: "Horas de estudio", meta: 40, unidad: "hrs" } },
+  Trading: { act: { titulo: "Journal de la sesión", dias: [1, 2, 3, 4, 5], ini: "10:00", dur: 15 }, reto: { que: "Sesiones con journal", meta: 60, unidad: "veces" } },
+  Otro:    { act: { titulo: "Actividad del círculo", dias: [1, 3, 5], ini: "19:00", dur: 30 }, reto: { que: "Avance del reto", meta: 100, unidad: "veces" } },
+};
+const fmtValor = (v, u2) => u2 === "$" ? "$" + (+v).toLocaleString("en-US") : (+v).toLocaleString("en-US") + (u2 ? " " + u2 : "");
+function nuevoDraftCirc(tipo) {
+  const d = CIRC_DEFAULTS[tipo];
+  return { nombre: "", tipo, metrica: "semana", miembros: [S._id],
+    actividad: JSON.parse(JSON.stringify(d.act)), reto: JSON.parse(JSON.stringify(d.reto)) };
+}
 const FRASES_PUSH = [
   "Te veo abajo en la carrera. ¿Así o más cómodo?",
   "Hoy no se negocia. Un bloque a la vez.",
@@ -926,12 +994,42 @@ function circProgress(c) {
     .map((id) => root.users[id]).filter(Boolean)
     .map((u) => {
       let pct, label;
-      if (c.metrica === "racha") { const r = rachaU(u); pct = Math.min(100, Math.round((r.dias / 30) * 100)); label = r.dias + " días"; }
+      if (c.metrica === "reto" && c.reto) {
+        const suma = (c.registros || []).filter((r) => r.uid === u._id).reduce((s, r) => s + (+r.valor || 0), 0);
+        pct = Math.min(100, Math.round((suma / (c.reto.meta || 1)) * 100));
+        label = fmtValor(suma, c.reto.unidad) + " de " + fmtValor(c.reto.meta, c.reto.unidad);
+      } else if (c.metrica === "racha") { const r = rachaU(u); pct = Math.min(100, Math.round((r.dias / 30) * 100)); label = r.dias + " días"; }
       else { pct = weekScoreU(u); label = pct + "%"; }
       return { u, pct, label };
     })
     .sort((a, b) => b.pct - a.pct);
 }
+
+/* historial de logros del círculo: aportes al reto + actividades completadas */
+function feedCirculo(c) {
+  const items = [];
+  const regDias = new Set();
+  (c.registros || []).forEach((r) => {
+    const u = root.users[r.uid]; if (!u) return;
+    regDias.add(r.uid + "|" + r.fecha);
+    items.push({ fecha: r.fecha, texto: `${u.nombre} sumó ${fmtValor(r.valor, c.reto ? c.reto.unidad : "")}${c.reto ? " — " + c.reto.que.toLowerCase() : ""}` });
+  });
+  if (c.actividad) {
+    for (let d = 0; d < 14; d++) {
+      const key = addDias(hoyISO(), -d);
+      if (!c.actividad.dias.includes(parseISO(key).getDay())) continue;
+      c.miembros.forEach((id) => {
+        const u = root.users[id];
+        if (u && isCheckedU(u, key, "circ_" + c.id) && !regDias.has(id + "|" + key))
+          items.push({ fecha: key, texto: `${u.nombre} completó ${c.actividad.titulo.toLowerCase()}` });
+      });
+    }
+  }
+  items.sort((a, b) => (a.fecha < b.fecha ? 1 : -1));
+  return items.slice(0, 12);
+}
+const fechaCorta = (f) => f === hoyISO() ? "hoy" : f === addDias(hoyISO(), -1) ? "ayer"
+  : parseISO(f).getDate() + " " + MESES[parseISO(f).getMonth()].slice(0, 3);
 
 function empujar(destId, btn) {
   if (!root.users[destId]) return;
@@ -953,7 +1051,7 @@ function renderSocial() {
   $$("#circ-bar .circ-chip[data-c]").forEach((ch) => ch.addEventListener("click", () => { circSel = ch.dataset.c; circFormOpen = false; renderSocial(); }));
   $("#circ-new").addEventListener("click", () => {
     circFormOpen = true;
-    draftCirc = { nombre: "", tipo: "Gym", metrica: "semana", miembros: [S._id] };
+    draftCirc = nuevoDraftCirc("Gym");
     renderSocial();
   });
 
@@ -966,10 +1064,28 @@ function renderSocial() {
       <div class="row"><span class="k">Tipo</span><div class="chip-grid">
         ${CIRC_TIPOS.map((t) => `<button class="opt-chip ${draftCirc.tipo === t ? "on" : ""}" data-t="${t}">${t}</button>`).join("")}
       </div></div>
+      <div class="row"><span class="k">Actividad en el plan de cada quien</span>
+        <input id="cf-act" type="text" value="${draftCirc.actividad.titulo}" placeholder="Ej. Entreno" style="margin-bottom:10px;">
+        <div class="chip-grid">
+          ${[["L", 1], ["M", 2], ["X", 3], ["J", 4], ["V", 5], ["S", 6], ["D", 0]].map(([l, d]) =>
+            `<button class="opt-chip dia ${draftCirc.actividad.dias.includes(d) ? "on" : ""}" data-d="${d}">${l}</button>`).join("")}
+          <input id="cf-hora" type="time" value="${draftCirc.actividad.ini}" style="width:110px;">
+        </div>
+      </div>
       <div class="row"><span class="k">La carrera se corre por</span><div class="seg" id="cf-met">
-        <button data-m="semana" class="${draftCirc.metrica === "semana" ? "on" : ""}">Ejecución de la semana</button>
-        <button data-m="racha" class="${draftCirc.metrica === "racha" ? "on" : ""}">Racha (meta: 30 días)</button>
+        <button data-m="semana" class="${draftCirc.metrica === "semana" ? "on" : ""}">Semana</button>
+        <button data-m="racha" class="${draftCirc.metrica === "racha" ? "on" : ""}">Racha</button>
+        <button data-m="reto" class="${draftCirc.metrica === "reto" ? "on" : ""}">Reto medible</button>
       </div></div>
+      ${draftCirc.metrica === "reto" ? `
+      <div class="row"><span class="k">El reto · meta por persona</span>
+        <input id="cf-reto-que" type="text" value="${draftCirc.reto.que}" placeholder="Ej. Ahorrar para vacaciones" style="margin-bottom:10px;">
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+          <input id="cf-reto-meta" type="number" value="${draftCirc.reto.meta}" style="max-width:130px;">
+          <div class="seg" id="cf-unidad">${UNIDADES.map((u2) => `<button data-u="${u2}" class="${draftCirc.reto.unidad === u2 ? "on" : ""}">${u2}</button>`).join("")}</div>
+        </div>
+        <div class="hint">Cada quien registra sus avances al marcar la actividad en su día; su corredor avanza hacia la meta.</div>
+      </div>` : ""}
       <div class="row"><span class="k">Miembros (perfiles de este dispositivo)</span><div>
         ${users.map((u) => `<button class="mem-check ${draftCirc.miembros.includes(u._id) ? "on" : ""} ${u._id === S._id ? "self" : ""}" data-u="${u._id}"><span class="mini-av">${initial(u.nombre)}</span>${u.nombre}${u._id === S._id ? " (tú)" : ""}</button>`).join("")}
       </div></div>
@@ -979,7 +1095,24 @@ function renderSocial() {
       </div>
     </div>`;
     $("#cf-nombre").addEventListener("input", (e) => { draftCirc.nombre = e.target.value; });
-    $$("#circ-create .opt-chip").forEach((b) => b.addEventListener("click", () => { draftCirc.tipo = b.dataset.t; renderSocial(); }));
+    $$("#circ-create .opt-chip[data-t]").forEach((b) => b.addEventListener("click", () => {
+      const nombre = draftCirc.nombre, mets = draftCirc.metrica, miem = draftCirc.miembros;
+      draftCirc = nuevoDraftCirc(b.dataset.t);
+      draftCirc.nombre = nombre; draftCirc.metrica = mets; draftCirc.miembros = miem;
+      renderSocial();
+    }));
+    $$("#circ-create .opt-chip.dia").forEach((b) => b.addEventListener("click", () => {
+      const d = +b.dataset.d; const i = draftCirc.actividad.dias.indexOf(d);
+      if (i >= 0) draftCirc.actividad.dias.splice(i, 1); else draftCirc.actividad.dias.push(d);
+      renderSocial();
+    }));
+    $("#cf-act").addEventListener("input", (e) => { draftCirc.actividad.titulo = e.target.value; });
+    $("#cf-hora").addEventListener("input", (e) => { draftCirc.actividad.ini = e.target.value || "19:00"; });
+    if ($("#cf-reto-que")) {
+      $("#cf-reto-que").addEventListener("input", (e) => { draftCirc.reto.que = e.target.value; });
+      $("#cf-reto-meta").addEventListener("input", (e) => { draftCirc.reto.meta = +e.target.value || 0; });
+      $$("#cf-unidad button").forEach((b) => b.addEventListener("click", () => { draftCirc.reto.unidad = b.dataset.u; renderSocial(); }));
+    }
     $$("#cf-met button").forEach((b) => b.addEventListener("click", () => { draftCirc.metrica = b.dataset.m; renderSocial(); }));
     $$("#circ-create .mem-check").forEach((b) => b.addEventListener("click", () => {
       const id = b.dataset.u;
@@ -990,7 +1123,15 @@ function renderSocial() {
     }));
     $("#cf-crear").addEventListener("click", () => {
       if (!draftCirc.nombre.trim()) { alert("Ponle nombre al círculo."); return; }
-      const c = { id: uid(), nombre: draftCirc.nombre.trim(), tipo: draftCirc.tipo, metrica: draftCirc.metrica, miembros: draftCirc.miembros, creado: hoyISO(), _rev: Date.now() };
+      if (!draftCirc.actividad.dias.length) { alert("Elige al menos un día para la actividad."); return; }
+      if (draftCirc.metrica === "reto" && (!draftCirc.reto.que.trim() || !(+draftCirc.reto.meta > 0))) { alert("Completa el reto: qué lograr y la meta por persona."); return; }
+      const c = {
+        id: uid(), nombre: draftCirc.nombre.trim(), tipo: draftCirc.tipo, metrica: draftCirc.metrica,
+        miembros: draftCirc.miembros, creado: hoyISO(), _rev: Date.now(),
+        actividad: { titulo: draftCirc.actividad.titulo.trim() || "Actividad", dias: draftCirc.actividad.dias, ini: draftCirc.actividad.ini, dur: draftCirc.actividad.dur },
+        reto: draftCirc.metrica === "reto" ? { que: draftCirc.reto.que.trim(), meta: +draftCirc.reto.meta, unidad: draftCirc.reto.unidad } : null,
+        registros: [],
+      };
       root.circulos.push(c); saveRoot();
       circSel = c.id; circFormOpen = false; renderSocial();
     });
@@ -1008,10 +1149,14 @@ function renderSocial() {
   }
   const filas = circProgress(c);
   const maxPct = Math.max(...filas.map((f) => f.pct));
+  const lbl = c.metrica === "reto" && c.reto
+    ? `RETO · ${c.reto.que.toUpperCase()} · META ${fmtValor(c.reto.meta, c.reto.unidad)} C/U`
+    : c.metrica === "racha" ? "CARRERA POR RACHA · META 30 DÍAS" : "CARRERA SEMANAL · META 100%";
+  const feed = feedCirculo(c);
   wrap.innerHTML = `<div class="race-card">
     <div class="race-head">
       <h3>${c.nombre} <span class="k" style="margin-left:6px">${c.tipo}</span></h3>
-      <span class="meta-lbl">${c.metrica === "racha" ? "CARRERA POR RACHA · META 30 DÍAS" : "CARRERA SEMANAL · META 100%"} — META →</span>
+      <span class="meta-lbl">${lbl} — META →</span>
     </div>
     ${filas.map((f) => {
       const esLider = f.pct === maxPct && f.pct > 0;
@@ -1030,6 +1175,12 @@ function renderSocial() {
         </div>
       </div>`;
     }).join("")}
+    <div class="feed">
+      <span class="k">Últimos logros</span>
+      ${feed.length
+        ? feed.map((f) => `<div class="feed-row"><span class="f-fecha">${fechaCorta(f.fecha)}</span><span>${f.texto}</span></div>`).join("")
+        : `<div class="feed-row" style="color:var(--faint)">Aún no hay logros. El primero que marque "${c.actividad ? c.actividad.titulo : "su actividad"}" en su día estrena el historial.</div>`}
+    </div>
     <div class="btn-row" style="margin-top:16px;">
       <button class="btn danger" id="circ-del">Eliminar círculo</button>
     </div>

@@ -539,6 +539,30 @@ textarea { resize: vertical; }
 .race-run.me { box-shadow: 0 0 0 3px var(--accent-soft); }
 .race-empty { color: var(--dim); font-size: 14px; padding: 20px 0; }
 
+/* historial de logros */
+.feed { margin-top: 20px; border-top: 1px solid var(--line); padding-top: 14px; }
+.feed .k { display: block; margin-bottom: 8px; }
+.feed-row { display: flex; gap: 14px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 13px; align-items: baseline; }
+.feed-row:first-of-type { border-top: none; }
+.feed-row .f-fecha { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); width: 58px; flex-shrink: 0; }
+
+/* chips de día en el formulario de círculo */
+.opt-chip.dia { min-width: 44px; justify-content: center; padding: 9px 0; }
+
+/* modal para registrar avance del reto */
+#valor-modal { position: fixed; inset: 0; display: none; z-index: 70; }
+#valor-modal.on { display: block; }
+#valor-modal .backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.62); }
+.vm-card {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: min(380px, 92vw); background: var(--panel); border: 1px solid var(--line-2);
+  border-radius: 16px; padding: 26px 24px; box-shadow: var(--shadow-lg);
+}
+.vm-card .vm-t { font-size: 15px; font-weight: 600; margin-bottom: 16px; line-height: 1.4; }
+.vm-card .btn-row { margin-top: 16px; }
+
+.cal-day .dot.circulo { background: #8B887F; }
+
 /* empujones en HOY */
 #nudges { margin-bottom: 22px; }
 #nudges:empty { display: none; }
