@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Goal Achiever — Tu día en orden</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%23111111'/><circle cx='50' cy='50' r='26' fill='none' stroke='white' stroke-width='9'/><circle cx='50' cy='50' r='7' fill='white'/></svg>">
+</head>
+<body>
+
+<!-- ============================================================
+     GATE — landing / login / crear / encuesta
+     ============================================================ -->
+<div id="gate" class="on">
+
+  <div class="gate-top">
+    <div class="brand"><span class="dot"></span> Goal Achiever</div>
+    <button class="btn ghost" id="top-login">Entrar</button>
+  </div>
+
+  <!-- LANDING -->
+  <section class="gate-screen on" id="gate-landing">
+    <canvas id="gl" aria-hidden="true"></canvas>
+    <div id="grain" aria-hidden="true"></div>
+    <div id="cursor-dot" aria-hidden="true"></div>
+
+    <div id="land">
+
+      <!-- HERO -->
+      <header class="l-hero">
+        <div class="l-eyebrow reveal"><span class="tick"></span>ASISTENTE PERSONAL DE METAS</div>
+        <h1 class="l-h1">
+          <span class="line"><span>GRANDES</span></span>
+          <span class="line"><span>METAS.</span></span>
+          <span class="line indent"><span>UN DÍA</span></span>
+          <span class="line indent"><span>A LA VEZ.</span></span>
+        </h1>
+        <div class="l-hero-foot">
+          <p class="l-sub reveal">Un triatlón. Tu primer millón. El negocio que traes en la cabeza.
+          Goal Achiever convierte la meta en el plan exacto de hoy — y te acompaña hasta que caiga.</p>
+          <div class="l-cta reveal">
+            <button class="btn primary lg" id="cta-crear">Crear mi cuenta</button>
+            <button class="btn lg" id="cta-demo">Ver un ejemplo</button>
+          </div>
+        </div>
+        <div class="l-scroll-hint"><span></span>DESLIZA</div>
+      </header>
+
+      <!-- MANIFIESTO -->
+      <section class="l-manifesto">
+        <p class="l-big" id="manifesto-txt">La motivación dura dos semanas. El sistema dura lo que tú decidas. Nosotros construimos el sistema.</p>
+      </section>
+
+      <!-- PILARES -->
+      <section class="l-pillar" data-n="01">
+        <div class="l-pillar-inner">
+          <div class="l-num" aria-hidden="true">01</div>
+          <div class="l-pillar-copy">
+            <span class="l-kicker reveal">EL DÍA</span>
+            <h2 class="reveal">Tu día,<br>en orden.</h2>
+            <p class="reveal">Una línea de tiempo con un marcador de AHORA. Sabes qué toca, cuánto dura
+            y qué meta alimenta. ¿Se te fue la mañana? Un toque y el resto del día se replantea solo.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="l-pillar" data-n="02">
+        <div class="l-pillar-inner">
+          <div class="l-num" aria-hidden="true">02</div>
+          <div class="l-pillar-copy">
+            <span class="l-kicker reveal">LA META</span>
+            <h2 class="reveal">Fechas,<br>no deseos.</h2>
+            <p class="reveal">Cada meta se rompe en hitos hacia atrás desde el día final.
+            Una línea de ritmo te dice, con datos, si vas a llegar o vas tarde. Sin humo.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="l-pillar" data-n="03">
+        <div class="l-pillar-inner">
+          <div class="l-num" aria-hidden="true">03</div>
+          <div class="l-pillar-copy">
+            <span class="l-kicker reveal">EL ASISTENTE</span>
+            <h2 class="reveal">Te conoce<br>de verdad.</h2>
+            <p class="reveal">Siete preguntas y sabe tus horarios, tu mayor obstáculo y tu porqué.
+            Briefing al amanecer. Cierre honesto de noche. Cero sermones, puro siguiente paso.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="l-pillar" data-n="04">
+        <div class="l-pillar-inner">
+          <div class="l-num" aria-hidden="true">04</div>
+          <div class="l-pillar-copy">
+            <span class="l-kicker reveal">EL CÍRCULO</span>
+            <h2 class="reveal">Solos no.<br>En carrera.</h2>
+            <p class="reveal">Círculos con tu gente — gym, familia, ahorro. Cada quien avanza en la pista
+            según su progreso real. Un empujón de un amigo vale más que mil alarmas.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- CIFRAS -->
+      <section class="l-strip">
+        <div class="l-strip-track" id="strip-track">
+          <span>≥85% DE EJECUCIÓN SEMANAL</span><i></i>
+          <span>MÁXIMO 3 METAS EN FOCO</span><i></i>
+          <span>1 DÍA A LA VEZ</span><i></i>
+          <span>0 EXCUSAS</span><i></i>
+          <span>≥85% DE EJECUCIÓN SEMANAL</span><i></i>
+          <span>MÁXIMO 3 METAS EN FOCO</span><i></i>
+          <span>1 DÍA A LA VEZ</span><i></i>
+          <span>0 EXCUSAS</span><i></i>
+        </div>
+      </section>
+
+      <!-- FAMILIA -->
+      <section class="l-family">
+        <span class="l-kicker reveal">PARA TU CASA</span>
+        <p class="l-big reveal">Cada quien su perfil. Su plan. Su racha.<br>
+        <em>Los datos nunca salen de tu dispositivo.</em></p>
+      </section>
+
+      <!-- CTA FINAL -->
+      <section class="l-final">
+        <h2 class="l-final-h reveal">El año no se gana<br>en enero.</h2>
+        <div class="l-final-hoy reveal">SE GANA <em>HOY</em>.</div>
+        <div class="l-cta reveal">
+          <button class="btn primary lg" id="cta-crear-2">Crear mi cuenta</button>
+          <button class="btn lg" id="cta-entrar">Ya tengo cuenta</button>
+        </div>
+      </section>
+
+      <footer class="l-foot">
+        <span>GOAL ACHIEVER</span>
+        <span>Tu día en orden</span>
+        <span>MMXXVI</span>
+      </footer>
+
+    </div>
+  </section>
+
+  <!-- LOGIN -->
+  <section class="gate-screen" id="gate-login">
+    <div class="auth-card">
+      <h2>¿Quién eres?</h2>
+      <p class="sub">Elige tu perfil para continuar.</p>
+      <div class="user-grid" id="login-grid"></div>
+      <div class="pin-row" id="login-pin" style="display:none;">
+        <input id="pin-in" type="password" inputmode="numeric" maxlength="4" placeholder="PIN">
+        <button class="btn primary" id="pin-go">Entrar</button>
+      </div>
+      <div class="err" id="login-err"></div>
+      <div class="auth-row"><button class="btn ghost block" id="login-back">← Volver</button></div>
+    </div>
+  </section>
+
+  <!-- CREAR USUARIO -->
+  <section class="gate-screen" id="gate-create">
+    <div class="auth-card">
+      <h2>Crear cuenta</h2>
+      <p class="sub">Un perfil nuevo. Tus datos se guardan solo en este dispositivo.</p>
+      <div class="field"><span class="k">Tu nombre</span><input id="new-name" type="text" placeholder="Ej. André" autocomplete="off"></div>
+      <div class="field"><span class="k">PIN de 4 dígitos (opcional)</span><input id="new-pin" type="password" inputmode="numeric" maxlength="4" placeholder="Solo si quieres proteger tu perfil"></div>
+      <div class="err" id="create-err"></div>
+      <div class="auth-row">
+        <button class="btn ghost" id="create-back">← Volver</button>
+        <button class="btn primary block" id="create-go">Continuar</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ENCUESTA -->
+  <section class="gate-screen" id="gate-onboard">
+    <div class="auth-card" id="onb-card">
+      <div id="onb-progress"><i style="width:0%"></i></div>
+      <div class="onb-step" id="onb-step"></div>
+      <div class="onb-nav">
+        <button class="btn ghost" id="onb-back">← Atrás</button>
+        <span class="step-count" id="onb-count"></span>
+        <button class="btn primary" id="onb-next">Siguiente</button>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- ============================================================
+     APP
+     ============================================================ -->
+<div id="app">
+  <aside id="side">
+    <div id="user-chip">
+      <div class="av" id="chip-av"></div>
+      <div class="who"><div class="nm" id="chip-name">—</div><div class="sw">Cambiar de perfil</div></div>
+      <div class="caret">⌄</div>
+    </div>
+    <button class="nav-btn on" data-view="hoy">Hoy</button>
+    <button class="nav-btn" data-view="semana">Semana</button>
+    <button class="nav-btn" data-view="calendario">Calendario</button>
+    <button class="nav-btn" data-view="metas">Metas</button>
+    <button class="nav-btn" data-view="social">Social</button>
+    <button class="nav-btn" data-view="asistente">Asistente</button>
+    <button class="nav-btn" data-view="perfil">Perfil</button>
+    <div id="side-foot">
+      <div id="side-clock"><div class="t" id="side-time">--:--</div><div class="d" id="side-date"></div></div>
+    </div>
+  </aside>
+
+  <main id="main">
+    <!-- HOY -->
+    <section class="view on" id="view-hoy">
+      <div id="hoy-top">
+        <div>
+          <span class="k" id="hoy-fecha"></span>
+          <div id="big-clock">--:--<span class="sec">:--</span></div>
+          <p id="hoy-saludo"></p>
+        </div>
+        <div id="score-wrap">
+          <div id="score-ring">
+            <svg width="108" height="108" viewBox="0 0 108 108">
+              <circle id="ring-bg" cx="54" cy="54" r="48" fill="none" stroke-width="6"/>
+              <circle id="ring-fg" cx="54" cy="54" r="48" fill="none" stroke-width="6" stroke-linecap="round" stroke-dasharray="301.6" stroke-dashoffset="301.6"/>
+            </svg>
+            <div class="val" id="score-val">0%</div>
+          </div>
+          <div class="k" id="score-label">Día ejecutado</div>
+          <div id="streak-line"></div>
+        </div>
+      </div>
+
+      <div id="nudges"></div>
+
+      <div id="next-card">
+        <div><span class="k" id="next-k">Siguiente</span><div class="t1" id="next-title">—</div><div class="t2" id="next-sub"></div></div>
+        <div class="when" id="next-when"></div>
+      </div>
+
+      <div class="section-line">
+        <span class="k">Tu día en orden</span>
+        <button class="btn" id="btn-replan" title="Recorre los bloques pendientes para empezar ahora">Replanear resto</button>
+      </div>
+      <div id="timeline"></div>
+
+      <div class="section-line" style="margin-top:26px; border-top:1px solid var(--line); padding-top:16px;">
+        <span class="k">Scorecard semanal</span>
+        <span class="mono" id="week-score" style="font-size:13px;"></span>
+      </div>
+      <div class="bar"><i id="week-bar" style="width:0%"></i></div>
+      <div class="bar-caption"><span>0%</span><span>meta ≥ 85% de ejecución</span><span>100%</span></div>
+    </section>
+
+    <!-- SEMANA -->
+    <section class="view" id="view-semana">
+      <div class="view-head"><span class="k">Plantilla</span><h1>Tu semana</h1><p class="lead">Las rutinas fijas que defienden tus metas. Se generó con base en tu encuesta; se puede afinar desde Perfil.</p></div>
+      <div id="semana-grid"></div>
+    </section>
+
+    <!-- CALENDARIO -->
+    <section class="view" id="view-calendario">
+      <div class="view-head"><span class="k">Historial y plan</span><h1>Calendario</h1></div>
+      <div id="cal-head"><button class="cal-nav" id="cal-prev">←</button><div id="cal-title"></div><button class="cal-nav" id="cal-next">→</button></div>
+      <div id="cal-grid"></div>
+      <div id="cal-detail"></div>
+    </section>
+
+    <!-- METAS -->
+    <section class="view" id="view-metas">
+      <div class="view-head"><span class="k">Backward planning</span><h1>Metas</h1><p class="lead">Cada meta tiene fecha, métrica y hitos hacia atrás. La línea de ritmo te dice si vas a llegar. Máximo 3 metas en foco.</p></div>
+      <div id="metas-list"></div>
+    </section>
+
+    <!-- SOCIAL -->
+    <section class="view" id="view-social">
+      <div class="view-head">
+        <span class="k">Círculos</span>
+        <h1>Social</h1>
+        <p class="lead">Crea círculos con tu gente — gym, familia, ahorro — y compitan en una carrera hacia la meta. Verse en la pista empuja más que cualquier alarma.</p>
+      </div>
+      <div id="circ-bar"></div>
+      <div id="circ-create"></div>
+      <div id="race-wrap"></div>
+    </section>
+
+    <!-- ASISTENTE -->
+    <section class="view" id="view-asistente">
+      <div class="view-head"><span class="k">Tu JARVIS</span><h1>Asistente</h1></div>
+      <div id="chat-wrap">
+        <div id="chat-log"></div>
+        <div id="chips">
+          <button class="chip" data-q="briefing">Briefing del día</button>
+          <button class="chip" data-q="ahora">¿Qué sigue ahora?</button>
+          <button class="chip" data-q="progreso">¿Cómo voy?</button>
+          <button class="chip" data-q="replanear">Reorganiza mi día</button>
+          <button class="chip" data-q="cierre">Cierre del día</button>
+        </div>
+        <form id="chat-form">
+          <input id="chat-in" type="text" placeholder="Pregúntame qué hacer, cómo vas, o pide una decisión…" autocomplete="off">
+          <button id="chat-send" type="submit">Enviar</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- PERFIL -->
+    <section class="view" id="view-perfil">
+      <div class="view-head"><span class="k">Mi perfil</span><h1>Perfil</h1></div>
+      <div class="form-grid">
+        <label><span class="k">Nombre</span><input id="p-nombre" type="text"></label>
+        <label><span class="k">Ciudad</span><input id="p-ciudad" type="text"></label>
+        <label><span class="k">Hora de despertar</span><input id="p-despertar" type="time"></label>
+        <label><span class="k">Hora de dormir</span><input id="p-dormir" type="time"></label>
+        <label class="full"><span class="k">Carta a mi futuro yo</span><textarea id="p-carta" rows="3" placeholder="El asistente te la recordará cuando flaquees."></textarea></label>
+        <label class="full">
+          <span class="k">API key de Claude (opcional — modo JARVIS real)</span>
+          <input id="p-apikey" type="password" placeholder="sk-ant-…">
+          <div class="hint">Con tu API key, el asistente responde con Claude usando todo tu contexto (encuesta, metas, día, progreso). La key vive solo en este navegador.</div>
+        </label>
+      </div>
+      <div class="btn-row">
+        <button class="btn primary" id="btn-save">Guardar</button>
+        <button class="btn" id="btn-reonboard">Rehacer encuesta</button>
+        <button class="btn" id="btn-export">Exportar mis datos</button>
+        <button class="btn danger" id="btn-del-user">Eliminar este perfil</button>
+      </div>
+      <div id="perfil-saved">Guardado ✓</div>
+    </section>
+  </main>
+</div>
+
+<!-- menú de cambio de usuario -->
+<div id="user-menu">
+  <div class="backdrop"></div>
+  <div class="pop" id="user-pop"></div>
+</div>
+
+<script src="https://unpkg.com/three@0.140.0/build/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://unpkg.com/@studio-freight/lenis@1.0.42/dist/lenis.min.js"></script>
+<script src="app.js"></script>
+<script src="landing.js"></script>
+</body>
+</html>
