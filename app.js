@@ -192,7 +192,7 @@ const AREAS = {
     ],
   },
 };
-const AREA_ORDER = ["salud", "trading", "dinero", "negocio", "estudio", "productividad", "bienestar", "ahorro", "millonario", "viajar", "relaciones"];
+const AREA_ORDER = ["salud", "dinero", "negocio", "estudio", "productividad", "bienestar", "ahorro", "millonario", "viajar", "relaciones"];
 const HORIZONTES = { "3m": { d: 90, l: "3 meses" }, "6m": { d: 183, l: "6 meses" }, "6a": { d: 183, l: "6 meses" }, "1a": { d: 365, l: "1 año" }, "5a": { d: 1825, l: "5 años" }, "10a": { d: 3653, l: "10 años" } };
 const OBSTACULOS = ["Procrastinación", "Falta de tiempo", "Falta de constancia", "Distracciones", "No sé por dónde empezar", "Me desmotivo rápido"];
 
@@ -214,6 +214,24 @@ function generarMetas(enc) {
       milestones: hitos, calc: !!c.calc,
     });
   });
+  // áreas escritas por el usuario → metas genéricas a su medida
+  (enc.areasCustom || []).forEach((txt, i) => {
+    if (!txt.trim()) return;
+    const esPrincipal = enc.principal === "c" + i;
+    const hz = HORIZONTES[esPrincipal ? enc.horizonte : "6m"] || HORIZONTES["6m"];
+    const inicio = hoyISO();
+    const fecha = addDias(inicio, hz.d);
+    const hitos = [
+      { t: "Primer paso dado", f: .1 }, { t: "Ya se volvió hábito", f: .35 },
+      { t: "Mitad del camino", f: .6 }, { t: txt.trim(), f: 1 },
+    ].map((h) => ({ t: h.t, f: addDias(inicio, Math.round(h.f * hz.d)), done: false }));
+    metas.push({
+      id: "c" + i, nombre: txt.trim(), foco: false, inicio, fecha,
+      porque: "", metrica: "Avanzar de forma constante en esto", accion: txt.trim(),
+      milestones: hitos, calc: false,
+    });
+  });
+
   // foco: la principal + hasta 3 en total (12WY)
   const principal = metas.find((m) => m.id === enc.principal);
   if (principal) principal.foco = true;
@@ -260,6 +278,12 @@ function planDia(enc, dow) {
     if (!breakfast && weekday && t < toMin("11:00")) { push(25, "desayuno", "Desayuno", null, "vida"); breakfast = true; }
     if (!lunch && t >= toMin("12:30") && t < toMin("15:00")) { push(60, "comida", "Comida + descanso", null, "vida"); lunch = true; }
   }
+
+  // actividades de las áreas que el usuario escribió (por defecto L/X/V)
+  (enc.areasCustom || []).forEach((txt, i) => {
+    if (!txt.trim() || ![1, 3, 5].includes(dow)) return;
+    push(60, "c" + i, txt.trim(), "c" + i, "otro");
+  });
 
   // especiales de fin de semana / ahorro
   if (dow === 6) push(30, "review", "Revisión semanal · scorecard", null, "ritual");
@@ -534,10 +558,11 @@ const PASOS = ["intro", "datos", "horarios", "areas", "principal", "intensidad",
 
 function startOnboarding() {
   draft = S.encuesta && S.encuesta.areas ? JSON.parse(JSON.stringify(S.encuesta)) : {
-    areas: [], principal: null, horizonte: "6m", intensidad: "equilibrado",
-    obstaculo: null, motivacion: S.perfil.carta || "",
+    areas: [], areasCustom: [], principal: null, horizonte: "6m", intensidad: "equilibrado",
+    obstaculo: "", motivacion: S.perfil.carta || "",
     edad: "", ciudad: S.perfil.ciudad || "", despertar: S.perfil.despertar || "06:30", dormir: S.perfil.dormir || "22:30",
   };
+  draft.areasCustom = draft.areasCustom || [];
   paso = 0;
   showGateScreen("gate-onboard");
   renderPaso();
@@ -572,26 +597,46 @@ function renderPaso() {
       </div>`;
   }
   else if (p === "areas") {
-    box.innerHTML = `<div class="q">¿Qué quieres mejorar?</div><div class="qs">Elige una o varias. Cada área se vuelve una meta con su plan.</div>
-      <div class="onb-body"><div class="chip-grid" id="areas-grid">
-        ${AREA_ORDER.map((a) => `<button class="opt-chip ${draft.areas.includes(a) ? "on" : ""}" data-a="${a}">${AREAS[a].label}</button>`).join("")}
-      </div></div>`;
-    $$("#areas-grid .opt-chip").forEach((c) => c.addEventListener("click", () => {
+    box.innerHTML = `<div class="q">¿Qué quieres mejorar?</div><div class="qs">Elige de la lista o escribe la tuya con tus palabras. Cada una se vuelve una meta con su plan.</div>
+      <div class="onb-body">
+        <div class="chip-grid" id="areas-grid">
+          ${AREA_ORDER.map((a) => `<button class="opt-chip ${draft.areas.includes(a) ? "on" : ""}" data-a="${a}">${AREAS[a].label}</button>`).join("")}
+          ${draft.areasCustom.map((t, i) => `<button class="opt-chip on" data-cx="${i}" title="Quitar">${t} ✕</button>`).join("")}
+        </div>
+        <div style="display:flex; gap:8px; margin-top:14px;">
+          <input id="area-otro" type="text" placeholder="Escribe la tuya… (ej. aprender guitarra, dejar de fumar)">
+          <button class="btn" id="area-add" type="button">Agregar</button>
+        </div>
+      </div>`;
+    $$("#areas-grid .opt-chip[data-a]").forEach((c) => c.addEventListener("click", () => {
       const a = c.dataset.a; const i = draft.areas.indexOf(a);
       if (i >= 0) draft.areas.splice(i, 1); else draft.areas.push(a);
-      if (draft.principal && !draft.areas.includes(draft.principal)) draft.principal = null;
       c.classList.toggle("on");
     }));
+    $$("#areas-grid .opt-chip[data-cx]").forEach((c) => c.addEventListener("click", () => {
+      draft.areasCustom.splice(+c.dataset.cx, 1); renderPaso();
+    }));
+    const addCustom = () => {
+      const v = $("#area-otro").value.trim();
+      if (v) { draft.areasCustom.push(v); renderPaso(); setTimeout(() => $("#area-otro") && $("#area-otro").focus(), 30); }
+    };
+    $("#area-add").addEventListener("click", addCustom);
+    $("#area-otro").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addCustom(); } });
   }
   else if (p === "principal") {
-    if (!draft.areas.length) { box.innerHTML = `<div class="q">Primero elige un área</div><div class="qs">Regresa un paso y marca al menos una.</div>`; }
+    const keys = [...draft.areas, ...draft.areasCustom.map((_, i) => "c" + i)];
+    if (!keys.length) { box.innerHTML = `<div class="q">Primero elige un área</div><div class="qs">Regresa un paso y marca o escribe al menos una.</div>`; }
     else {
-      if (!draft.principal) draft.principal = draft.areas[0];
+      if (!keys.includes(draft.principal)) draft.principal = keys[0];
+      const opt = (key) => {
+        const cust = /^c\d+$/.test(key);
+        const nombre = cust ? draft.areasCustom[+key.slice(1)] : AREAS[key].metaNombre;
+        const metrica = cust ? "Tu meta, en tus palabras" : AREAS[key].metrica;
+        return `<button class="big-opt ${key === draft.principal ? "on" : ""}" data-a="${key}"><div><div class="t1">${nombre}</div><div class="t2">${metrica}</div></div></button>`;
+      };
       box.innerHTML = `<div class="q">Tu meta #1</div><div class="qs">La que más te importa este ciclo. Le pondremos foco especial (máx. 3 focos).</div>
         <div class="onb-body">
-          <div class="card-choose" id="prin-grid">
-            ${draft.areas.map((a) => `<button class="big-opt ${a === draft.principal ? "on" : ""}" data-a="${a}"><span class="em">${AREAS[a].em}</span><div><div class="t1">${AREAS[a].metaNombre}</div><div class="t2">${AREAS[a].metrica}</div></div></button>`).join("")}
-          </div>
+          <div class="card-choose" id="prin-grid">${keys.map(opt).join("")}</div>
           <div style="margin-top:18px;"><span class="k" style="display:block;margin-bottom:8px;">¿Para cuándo?</span>
             <div class="seg" id="hz-seg">
               ${["3m", "6m", "1a", "5a", "10a"].map((h) => `<button data-h="${h}" class="${draft.horizonte === h ? "on" : ""}">${HORIZONTES[h].l}</button>`).join("")}
@@ -614,24 +659,34 @@ function renderPaso() {
     $$("#int-grid .big-opt").forEach((b) => b.addEventListener("click", () => { draft.intensidad = b.dataset.v; renderPaso(); }));
   }
   else if (p === "obstaculo") {
-    box.innerHTML = `<div class="q">¿Qué te suele frenar?</div><div class="qs">El asistente lo tomará en cuenta para ayudarte donde más lo necesitas.</div>
-      <div class="onb-body"><div class="chip-grid" id="obs-grid">
-        ${OBSTACULOS.map((o) => `<button class="opt-chip ${draft.obstaculo === o ? "on" : ""}" data-o="${o}">${o}</button>`).join("")}
-      </div></div>`;
+    const esCustom = draft.obstaculo && !OBSTACULOS.includes(draft.obstaculo);
+    box.innerHTML = `<div class="q">¿Qué te suele frenar?</div><div class="qs">Elige una o escríbelo con tus palabras. El asistente lo tomará en cuenta para ayudarte donde más lo necesitas.</div>
+      <div class="onb-body">
+        <div class="chip-grid" id="obs-grid">
+          ${OBSTACULOS.map((o) => `<button class="opt-chip ${draft.obstaculo === o ? "on" : ""}" data-o="${o}">${o}</button>`).join("")}
+        </div>
+        <input id="obs-otro" type="text" style="margin-top:14px;" placeholder="O escríbelo tú… (ej. me distrae el celular)" value="${esCustom ? draft.obstaculo : ""}">
+      </div>`;
     $$("#obs-grid .opt-chip").forEach((c) => c.addEventListener("click", () => { draft.obstaculo = c.dataset.o; renderPaso(); }));
+    $("#obs-otro").addEventListener("input", (e) => {
+      draft.obstaculo = e.target.value.trim();
+      $$("#obs-grid .opt-chip").forEach((c) => c.classList.remove("on"));
+    });
   }
   else if (p === "motivacion") {
     box.innerHTML = `<div class="q">Carta a tu futuro yo</div><div class="qs">¿Por qué estas metas importan? El asistente te la recordará cuando flaquees.</div>
       <div class="onb-body"><textarea id="d-mot" rows="5" placeholder="Escríbele a tu yo del futuro…">${draft.motivacion}</textarea></div>`;
   }
   else if (p === "resumen") {
-    const areasTxt = draft.areas.map((a) => AREAS[a].label).join(", ") || "—";
+    const areasTxt = [...draft.areas.map((a) => AREAS[a].label), ...draft.areasCustom].join(", ") || "—";
+    const k = draft.principal;
+    const prinNombre = !k ? "—" : (/^c\d+$/.test(k) ? draft.areasCustom[+k.slice(1)] : (AREAS[k] ? AREAS[k].metaNombre : k));
     box.innerHTML = `<div class="q">Tu plan está listo</div><div class="qs">Revisa y crea tu plan. Puedes cambiar todo después.</div>
       <div class="onb-body"><div class="onb-summary">
         <div class="row"><span class="lab">Perfil</span><span class="val">${S.nombre}${draft.edad ? " · " + draft.edad + " años" : ""}${draft.ciudad ? " · " + draft.ciudad : ""}</span></div>
         <div class="row"><span class="lab">Horario</span><span class="val">${draft.despertar} — ${draft.dormir}</span></div>
         <div class="row"><span class="lab">Áreas</span><span class="val">${areasTxt}</span></div>
-        <div class="row"><span class="lab">Meta #1</span><span class="val">${draft.principal ? AREAS[draft.principal].metaNombre + " · " + HORIZONTES[draft.horizonte].l : "—"}</span></div>
+        <div class="row"><span class="lab">Meta #1</span><span class="val">${k ? prinNombre + " · " + HORIZONTES[draft.horizonte].l : "—"}</span></div>
         <div class="row"><span class="lab">Intensidad</span><span class="val" style="text-transform:capitalize">${draft.intensidad}</span></div>
         <div class="row"><span class="lab">Mayor obstáculo</span><span class="val">${draft.obstaculo || "—"}</span></div>
       </div></div>`;
@@ -646,7 +701,7 @@ function guardarPaso() {
 }
 function validarPaso() {
   const p = PASOS[paso];
-  if (p === "areas" && !draft.areas.length) { alert("Elige al menos un área para mejorar."); return false; }
+  if (p === "areas" && !draft.areas.length && !draft.areasCustom.length) { alert("Elige o escribe al menos un área para mejorar."); return false; }
   if (p === "principal" && !draft.principal) { alert("Elige tu meta #1."); return false; }
   return true;
 }
@@ -1207,7 +1262,7 @@ function pushMsg(rol, texto, src) { S.chat.push({ rol, texto, src: src || null }
 function renderChat() {
   const log = $("#chat-log"); if (!log) return; log.innerHTML = "";
   if (!S.chat.length) {
-    const areas = S.encuesta ? S.encuesta.areas.map((a) => AREAS[a].label.toLowerCase()).slice(0, 3).join(", ") : "tus metas";
+    const areas = (S.metas && S.metas.length) ? S.metas.slice(0, 3).map((m) => m.nombre.toLowerCase()).join(", ") : "tus metas";
     pushMsg("a", `Hola ${S.nombre}. Soy tu asistente de metas. Ya conozco tu encuesta: trabajas en ${areas}, tu meta #1 y tu día de hoy.\n\nUsa los botones rápidos o pregúntame lo que sea. Con tu API key de Claude (en Perfil) me convierto en un JARVIS completo.`, "local");
     return;
   }
