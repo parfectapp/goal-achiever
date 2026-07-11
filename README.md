@@ -4,7 +4,7 @@ Asistente personal de metas tipo JARVIS: convierte metas grandes (triatlón en 6
 $1M en 10 años) en el plan exacto de hoy. Multi-usuario (familia), carreras sociales
 por círculos, y nube familiar para sincronizar entre dispositivos.
 
-**EN VIVO:** https://parfectapp.github.io/goal-achiever/
+**EN VIVO:** https://studioamr.github.io/goal-achiever/
 **Local:** `python3 -m http.server 4276 --directory ~/claude/goal-achiever` → http://localhost:4276
 
 ## Backend (nube familiar)
